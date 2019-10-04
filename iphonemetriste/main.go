@@ -60,11 +60,13 @@ func queryML() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("querying mercado libre url: %v", err)
 	}
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("requesting to mercado libre: %s", response.Status)
+	}
 	return response.Body, nil
 }
 
-func iPhoneMasCaroMLStruct(wg *sync.WaitGroup) (decimal.Decimal, error) {
-	defer wg.Done()
+func iPhoneMasCaroMLStruct() (decimal.Decimal, error) {
 	// Convertimos la URL a un objeto url.URL
 
 	body, err := queryML()
@@ -91,45 +93,68 @@ func iPhoneMasCaroMLStruct(wg *sync.WaitGroup) (decimal.Decimal, error) {
 	return result.GetPrice(), nil
 }
 
-func iPhoneMasCaroML(wg *sync.WaitGroup) (decimal.Decimal, error) {
-	defer wg.Done()
+func iPhoneMasCaroML() (decimal.Decimal, error) {
+	// obtendremos el cuerpo de la respuesta de la función queryML, que es un io.ReadCloser
 	body, err := queryML()
 	if err != nil {
 		return decimal.Zero, err
 	}
+	// recordaremos cerrar el cuerpo al finalizar
 	defer body.Close()
 
+	// leemos todo el cuerpo en un arreglo de bytes, no es recomendable hacerlo de esta manera
+	// en código de producción ya que no estamos chequeando el largo del contenido antes de
+	// guardarlo en memoria, si nuestro código hiciese muchas de estas llamadas posiblemente
+	// ocuparia mucha memoria.
 	bodyData, err := ioutil.ReadAll(body)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("reading mercado libre response body: %v", err)
 	}
 
+	// de-serializamos el contenido del cuerpo a un map[string]interface{}
 	resultML := map[string]interface{}{}
 	err = json.Unmarshal(bodyData, &resultML)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("unmarshaling mercado libre response body: %v", err)
 	}
+
+	// buscamos en el map, la clave de la lista de resultados
 	resultsRaw, ok := resultML[resultsKey]
 	if !ok {
 		return decimal.Zero, fmt.Errorf("key %s not found in response JSON", resultsKey)
 	}
+	
+	// convertimos de un objeto interface{} a un []interface para poder utilizar las
+	// características de una lista
 	results, ok := resultsRaw.([]interface{})
 	if !ok {
 		return decimal.Zero, fmt.Errorf("unexpected results type %T", resultsRaw)
 	}
+	
+	// chequeamos que, ademas de ser una lita, tenga en efecto resultados.
 	if len(results) == 0 {
 		return decimal.Zero, fmt.Errorf("nobody is selling an %s", iPhone11Max)
 	}
+
+	// obtenemos el primer resultado que, dado el ordenamiento de mas caro a mas barato
+	// debería ser el mas caro.
 	resultRaw := results[0]
+
+	// convertimos este resultado nuevamente a un tipo que podamos manipular.
 	result, ok := resultRaw.(map[string]interface{})
 	if !ok {
 		return decimal.Zero, fmt.Errorf("unexpected single type %T", resultRaw)
 	}
+
+	// buscamos la clave del precio
 	priceRaw, ok := result[priceKey]
 	if !ok {
 		return decimal.Zero, fmt.Errorf("price is not available")
 	}
 
+
+	// utilizamos type switch para convertir el precio a decimal desde varios tipos
+	// posibles.
 	var moneyPrice decimal.Decimal
 	switch price := priceRaw.(type) {
 	case float64:
@@ -149,10 +174,9 @@ func iPhoneMasCaroML(wg *sync.WaitGroup) (decimal.Decimal, error) {
 }
 
 func main() {
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+
 	// moneyPrice, err := iPhoneMasCaroML(wg)
-	moneyPrice, err := iPhoneMasCaroMLStruct(wg)
+	moneyPrice, err := iPhoneMasCaroMLStruct()
 	if err != nil {
 		log.Fatalf("no se puede obtener el costo del iphone de mercado libre: %v", err)
 	}

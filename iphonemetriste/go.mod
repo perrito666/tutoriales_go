@@ -1,4 +1,4 @@
-module github.com/perrito666/iphonemetriste
+module github.com/perrito666/tutoriales_go/iphonemetriste
 
 go 1.12
 
