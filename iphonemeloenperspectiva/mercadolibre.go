@@ -203,9 +203,9 @@ func fetchCurrencyRate(sourceCurrency string) (decimal.Decimal, error) {
 // esta pensado para ser llamado dentro de una gorutina, concurrentemente con otros sites.
 func queryForSite(searchCriteria string, site mlSite,
 	callerWaiting *sync.WaitGroup, result chan siteSearchResult) {
-		// lo ptimero que haremos es encolar la llamada a Done, del wait group, así cuando
-		// esta función salga, sin importar el resultado se avisará que terminó a quien esté
-		// esperando.
+	// lo primero que haremos es encolar la llamada a Done, del wait group, así cuando
+	// esta función salga, sin importar el resultado se avisará que terminó a quien esté
+	// esperando.
 	defer callerWaiting.Done()
 
 	// creamos un wait group para la gorutina que obtendrá la cotización.

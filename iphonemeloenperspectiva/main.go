@@ -13,8 +13,10 @@ const iPhone11Max = "iPhone 11 Pro Max"
 
 func main() {
 	// Obtenemos de los argumentos de linea de comandos el criterio de búsqueda.
-	searchTerms := strings.Join(os.Args[1:], " ")
-
+	searchTerms := iPhone11Max
+	if len(os.Args) > 1 {
+		searchTerms = strings.Join(os.Args[1:], " ")
+	}
 	// obtenemos de mercado libre los sitios internacionales
 	sites, err := fetchSites()
 	if err != nil {
